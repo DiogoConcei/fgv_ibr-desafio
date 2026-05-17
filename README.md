@@ -10,7 +10,7 @@ Motor de busca semântica sobre um corpus de notícias econômicas brasileiras, 
 - [Arquitetura](#arquitetura)
 - [Etapa 1 — Sanitização](#etapa-1--sanitização)
 - [Etapa 2 — Embeddings e Busca Semântica](#etapa-2--embeddings-e-busca-semântica)
-- [Escalabilidade](#escabilidade)
+- [Escalabilidade](#escalabilidade)
 - [Resultados](#resultados)
 - [Estrutura do Projeto](#estrutura-do-projeto)
 - [Como Executar](#como-executar)
