@@ -238,9 +238,3 @@ Voltar para (b) busca, (r) resultados ou (s) sair:
 beautifulsoup4
 sentence-transformers
 ```
-
-Gere o `requirements.txt` com:
-
-```bash
-pip freeze > requirements.txt
-```
