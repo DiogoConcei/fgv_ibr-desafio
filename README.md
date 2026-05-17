@@ -10,9 +10,11 @@ Motor de busca semântica sobre um corpus de notícias econômicas brasileiras, 
 - [Arquitetura](#arquitetura)
 - [Etapa 1 — Sanitização](#etapa-1--sanitização)
 - [Etapa 2 — Embeddings e Busca Semântica](#etapa-2--embeddings-e-busca-semântica)
+- [Escalabilidade](#escabilidade)
 - [Resultados](#resultados)
 - [Estrutura do Projeto](#estrutura-do-projeto)
 - [Como Executar](#como-executar)
+- [Conclusão](#conclusão)
 - [Dependências](#dependências)
 
 ---
@@ -129,6 +131,22 @@ A similaridade cosseno mede o ângulo entre dois vetores no espaço de embedding
 
 ---
 
+## Escalabilidade
+
+A solução foi desenvolvida e validada sobre um corpus de 19 artigos. Para entender os limites de crescimento, é necessário analisar cada componente separadamente.
+
+**Sanitização** opera em O(n) sobre o tamanho do texto, com k etapas fixas de regex compilado — na prática O(k · n) tratado como linear. O custo é pago uma única vez graças ao cache local. Para corpora maiores, esse componente não representa gargalo.
+
+**Geração de embeddings do corpus** é O(d) onde d é o número de documentos. O modelo processa os documentos em batches internamente, então o crescimento é linear no tamanho do corpus. Para dezenas de milhares de artigos, ainda é viável em CPU, mas o tempo de inicialização passa a ser relevante — nesse cenário, persistir os embeddings em disco (via `numpy.save` ou similar) seria o próximo passo natural.
+
+**Busca semântica** é onde a solução atual tem um limite mais claro. A cada query, a similaridade cosseno é calculada entre o vetor da query e **todos** os vetores do corpus — uma operação O(d · v), onde v é a dimensão do embedding (384 neste caso). Para 19 artigos isso é instantâneo. Para centenas de milhares de documentos, essa busca exaustiva se torna inviável em tempo real.
+
+A solução para esse cenário é substituir a busca exaustiva por **Approximate Nearest Neighbor (ANN)**, implementado por bibliotecas como FAISS ou Qdrant, que reduzem a busca para O(log d) ao custo de uma pequena perda de precisão — tradeoff amplamente aceito em sistemas de recuperação de informação em produção.
+
+Em suma: a arquitetura atual é adequada para corpora de pequeno a médio porte (até alguns milhares de artigos) sem modificações. A transição para escala maior exige persistência de embeddings e substituição da busca linear por ANN, mas a estrutura do pipeline permanece a mesma.
+
+---
+
 ## Resultados
 
 Os testes foram realizados com três queries sobre o corpus de 19 artigos aprovados. O score indica a similaridade cosseno entre a query e o artigo (0 a 1).
@@ -235,6 +253,17 @@ Voltar para (b) busca, (r) resultados ou (s) sair:
 ```
 
 ---
+
+## Conclusão
+
+O projeto entregou um pipeline funcional de ponta a ponta: da sanitização de texto bruto até a recuperação semântica de artigos relevantes para consultas em linguagem natural.
+
+A etapa de sanitização demonstrou que escolhas técnicas fundamentadas — regex compilado em O(n), BeautifulSoup para parsing HTML — têm impacto direto na robustez e eficiência do pipeline. A decisão de preservar referências e fontes no corpo do texto reflete uma postura deliberada sobre integridade semântica: nem tudo que parece ruído é ruído.
+
+A etapa de busca semântica evidenciou algo que benchmarks não capturam completamente: o melhor modelo no papel nem sempre é o melhor modelo para o seu dado. O `paraphrase-multilingual-MiniLM-L12-v2`, mais leve e teoricamente menos preciso que o `mpnet`, produziu resultados mais coerentes sobre o corpus em português — o que reforça a importância de validar empiricamente, não só confiar em rankings gerais.
+
+Os resultados das três queries de validação são satisfatórios: o primeiro colocado em cada caso é diretamente relevante ao tema buscado, que é o critério mais importante em sistemas de recuperação — o resultado que o usuário vê primeiro precisa ser o certo.
+
 
 ## Dependências
 
